@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>จับคู่อาหาร</title>
+<style>
+  :root{
+    --crust:#3a2418;
+    --dough:#fff7e8;
+    --tomato:#d94f2b;
+    --basil:#3f6b3f;
+    --cheese:#f2b134;
+    --card-back:#e8863f;
+    --card-back-dark:#c96a2b;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100%;
+    background:var(--dough);
+    background-image:
+      radial-gradient(circle at 8% 12%, rgba(217,79,43,0.06) 0, transparent 45%),
+      radial-gradient(circle at 92% 85%, rgba(63,107,63,0.07) 0, transparent 45%);
+    font-family: 'Chonburi', 'Kanit', system-ui, -apple-system, sans-serif;
+    color:var(--crust);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:24px 16px 40px;
+  }
+  @font-face{
+    font-family:'Kanit-fallback';
+    src:local('Arial');
+  }
+  h1{
+    font-family:'Kanit', system-ui, sans-serif;
+    font-weight:700;
+    font-size:clamp(22px,5vw,32px);
+    margin:4px 0 2px;
+    letter-spacing:0.5px;
+  }
+  .sub{
+    font-family:'Kanit', system-ui, sans-serif;
+    font-size:14px;
+    color:#7a5c3e;
+    margin-bottom:18px;
+    text-align:center;
+  }
+  .hud{
+    display:flex;
+    gap:14px;
+    align-items:center;
+    margin-bottom:18px;
+    font-family:'Kanit', system-ui, sans-serif;
+  }
+  .pill{
+    background:var(--dough);
+    border:2px solid var(--crust);
+    border-radius:999px;
+    padding:6px 16px;
+    font-size:14px;
+    font-weight:600;
+    display:flex;
+    gap:6px;
+    align-items:center;
+  }
+  .pill span.big{font-size:16px;}
+  button.reset{
+    font-family:'Kanit', system-ui, sans-serif;
+    font-weight:600;
+    font-size:14px;
+    background:var(--tomato);
+    color:#fff;
+    border:none;
+    border-radius:999px;
+    padding:8px 18px;
+    cursor:pointer;
+    box-shadow:0 3px 0 #a3391d;
+    transition:transform .08s ease;
+  }
+  button.reset:active{ transform:translateY(2px); box-shadow:0 1px 0 #a3391d; }
+  button.reset:focus-visible, .card:focus-visible{ outline:3px solid var(--basil); outline-offset:2px; }
+
+  .board{
+    --cols:4;
+    display:grid;
+    grid-template-columns:repeat(var(--cols), 1fr);
+    gap:10px;
+    width:100%;
+    max-width:480px;
+    perspective:800px;
+  }
+  @media (min-width:520px){ .board{ --cols:5; } }
+
+  .card{
+    aspect-ratio:1/1;
+    position:relative;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .card-inner{
+    position:absolute;
+    inset:0;
+    border-radius:14px;
+    transform-style:preserve-3d;
+    transition:transform .45s cubic-bezier(.4,.2,.2,1);
+  }
+  .card.flipped .card-inner, .card.matched .card-inner{
+    transform:rotateY(180deg);
+  }
+  .face{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    backface-visibility:hidden;
+  }
+  .face.back{
+    background:linear-gradient(155deg,var(--card-back),var(--card-back-dark));
+    border:2px solid var(--card-back-dark);
+  }
+  .face.back::after{
+    content:"?";
+    font-family:'Kanit', sans-serif;
+    font-weight:700;
+    font-size:28px;
+    color:rgba(255,255,255,0.85);
+  }
+  .face.front{
+    background:var(--dough);
+    border:2px solid var(--crust);
+    transform:rotateY(180deg);
+    font-size:clamp(26px,7vw,38px);
+  }
+  .card.matched .face.front{
+    background:#eef6ea;
+    border-color:var(--basil);
+  }
+  .card.matched{
+    animation:pop .35s ease;
+  }
+  @keyframes pop{
+    0%{ transform:scale(1); }
+    40%{ transform:scale(1.08); }
+    100%{ transform:scale(1); }
+  }
+
+  .win{
+    margin-top:20px;
+    font-family:'Kanit', sans-serif;
+    text-align:center;
+    background:#eef6ea;
+    border:2px solid var(--basil);
+    border-radius:16px;
+    padding:16px 22px;
+    display:none;
+  }
+  .win.show{ display:block; }
+  .win h2{ margin:0 0 4px; color:var(--basil); font-size:20px; }
+  .win p{ margin:0; font-size:14px; color:#4d3a24; }
+
+  @media (prefers-reduced-motion: reduce){
+    .card-inner{ transition:none; }
+    .card.matched{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🍕 จับคู่อาหาร 🍓</h1>
+<p class="sub">พลิกไพ่หาคู่อาหารที่เหมือนกันให้ครบ 10 คู่</p>
+
+<div class="hud">
+  <div class="pill">🔁 <span class="big" id="moves">0</span> ครั้ง</div>
+  <div class="pill">✅ <span class="big" id="matches">0</span>/10</div>
+  <button class="reset" id="resetBtn">เริ่มใหม่</button>
+</div>
+
+<div class="board" id="board" role="grid" aria-label="กระดานเกมจับคู่อาหาร"></div>
+
+<div class="win" id="winBox">
+  <h2>เก่งมาก! 🎉</h2>
+  <p id="winText"></p>
+</div>
+
+<script>
+(function(){
+  var FOODS = ["🍕","🍔","🌭","🍟","🍩","🍦","🍉","🍇","🍓","🍎"];
+  var board = document.getElementById('board');
+  var movesEl = document.getElementById('moves');
+  var matchesEl = document.getElementById('matches');
+  var winBox = document.getElementById('winBox');
+  var winText = document.getElementById('winText');
+  var resetBtn = document.getElementById('resetBtn');
+
+  var deck = [];
+  var flipped = [];
+  var lock = false;
+  var moves = 0;
+  var matches = 0;
+
+  function shuffle(arr){
+    for(var i=arr.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t = arr[i]; arr[i]=arr[j]; arr[j]=t;
+    }
+    return arr;
+  }
+
+  function buildDeck(){
+    var pairs = FOODS.concat(FOODS);
+    shuffle(pairs);
+    return pairs.map(function(food, idx){
+      return { id: idx, food: food, matched:false };
+    });
+  }
+
+  function render(){
+    board.innerHTML = '';
+    deck.forEach(function(card){
+      var cardEl = document.createElement('div');
+      cardEl.className = 'card';
+      cardEl.setAttribute('role','button');
+      cardEl.setAttribute('tabindex','0');
+      cardEl.setAttribute('aria-label','การ์ดอาหาร คว่ำอยู่');
+      cardEl.dataset.id = card.id;
+
+      var inner = document.createElement('div');
+      inner.className = 'card-inner';
+
+      var back = document.createElement('div');
+      back.className = 'face back';
+
+      var front = document.createElement('div');
+      front.className = 'face front';
+      front.textContent = card.food;
+
+      inner.appendChild(back);
+      inner.appendChild(front);
+      cardEl.appendChild(inner);
+
+      cardEl.addEventListener('click', function(){ handleFlip(card.id, cardEl); });
+      cardEl.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' '){
+          e.preventDefault();
+          handleFlip(card.id, cardEl);
+        }
+      });
+
+      board.appendChild(cardEl);
+    });
+  }
+
+  function handleFlip(id, el){
+    if(lock) return;
+    var card = deck.find(function(c){ return c.id === id; });
+    if(!card || card.matched) return;
+    if(flipped.length && flipped[0].id === id) return;
+
+    el.classList.add('flipped');
+    el.setAttribute('aria-label','การ์ดอาหาร ' + card.food);
+    flipped.push({ id:id, el:el, food:card.food });
+
+    if(flipped.length === 2){
+      moves++;
+      movesEl.textContent = moves;
+      lock = true;
+      var a = flipped[0], b = flipped[1];
+      if(a.food === b.food){
+        setTimeout(function(){
+          a.el.classList.add('matched');
+          b.el.classList.add('matched');
+          matches++;
+          matchesEl.textContent = matches;
+          flipped = [];
+          lock = false;
+          if(matches === FOODS.length){
+            winText.textContent = 'ใช้ไป ' + moves + ' ครั้งในการจับคู่ให้ครบ';
+            winBox.classList.add('show');
+          }
+        }, 350);
+      } else {
+        setTimeout(function(){
+          a.el.classList.remove('flipped');
+          b.el.classList.remove('flipped');
+          a.el.setAttribute('aria-label','การ์ดอาหาร คว่ำอยู่');
+          b.el.setAttribute('aria-label','การ์ดอาหาร คว่ำอยู่');
+          flipped = [];
+          lock = false;
+        }, 800);
+      }
+    }
+  }
+
+  function startGame(){
+    deck = buildDeck();
+    flipped = [];
+    lock = false;
+    moves = 0;
+    matches = 0;
+    movesEl.textContent = 0;
+    matchesEl.textContent = 0;
+    winBox.classList.remove('show');
+    render();
+  }
+
+  resetBtn.addEventListener('click', startGame);
+  startGame();
+})();
+</script>
+</body>
+</html>
